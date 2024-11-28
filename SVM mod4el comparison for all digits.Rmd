@@ -1,0 +1,686 @@
+---
+title: "SVM"
+author: "Sahil"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+load("C:/Users/pmyss22/OneDrive - The University of Nottingham/Desktop/SML/Group Poject/zipCodeAllDigits.RData")
+
+# Load svmpath package
+library(svmpath)
+
+# Assuming train.X is a matrix and train.y is a numeric vector
+# Load necessary libraries
+library(ggplot2)
+
+# If train.X has more than 2 columns, reduce dimensions using PCA
+if (ncol(train.X) > 2){
+  pca <- prcomp(train.X, center = TRUE, scale. = TRUE)
+  train.X.reduced <- pca$x[, 1:2]  # Use the first two principal components
+  test.X.reduced <- predict(pca, test.X)[, 1:2]
+} else {
+  train.X.reduced <- train.X  # Use the original features if already 2D
+  test.X.reduced <- test.X
+}
+
+# Convert to a data frame
+train.data <- data.frame(
+  Feature1 = train.X.reduced[, 1],
+  Feature2 = train.X.reduced[, 2],
+  Label = as.factor(train.y)  # Explicitly convert labels to factors
+)
+
+test.data <- data.frame(
+  Feature1 = test.X.reduced[, 1],
+  Feature2 = test.X.reduced[, 2],
+  Label = as.factor(test.y) # Labels as factors
+)
+
+# Create the scatter plot with labeled points
+ggplot(train.data, aes(x = Feature1, y = Feature2, label = Label, color = Label)) +
+  geom_point(alpha = 0.7) +  # Add points with transparency
+  geom_text(vjust = -0.5, size = 3) +  # Add labels slightly above points
+  scale_color_brewer(palette = "Set3") +  # Use a color palette for labels
+  labs(
+    title = "Scatter Plot of train.X with Labels from train.y",
+    x = "Feature 1",
+    y = "Feature 2",
+    color = "Labels"
+  ) +
+  theme_minimal()  # Use a minimal theme
+```
+
+```{r}
+# Fit LDA model
+lda_model <- lda(Label ~ Feature1 + Feature2, data = train.data)
+
+# Predict on training data
+train.pred <- predict(lda_model, train.data)
+train.predicted <- train.pred$class
+
+# Calculate training error
+train.error <- mean(train.predicted != train.data$Label)
+
+# Predict on test data
+test.pred <- predict(lda_model, test.data)
+test.predicted <- test.pred$class
+
+# Calculate test error
+test.error <- mean(test.predicted != test.data$Label)
+
+# Create a grid of values for plotting decision boundaries
+x_min <- min(c(train.data$Feature1, test.data$Feature1)) - 1
+x_max <- max(c(train.data$Feature1, test.data$Feature1)) + 1
+y_min <- min(c(train.data$Feature2, test.data$Feature2)) - 1
+y_max <- max(c(train.data$Feature2, test.data$Feature2)) + 1
+
+grid_points <- expand.grid(
+  Feature1 = seq(x_min, x_max, length.out = 200),
+  Feature2 = seq(y_min, y_max, length.out = 200)
+)
+
+# Predict class probabilities on the grid
+grid_points$Label <- predict(lda_model, grid_points)$class
+
+# Plot the training data, test data, and decision boundaries
+ggplot() +
+  # Training points
+  geom_point(data = train.data, aes(x = Feature1, y = Feature2, color = Label), alpha = 0.7) +
+  # Fill regions with predicted label colors
+  geom_tile(data = grid_points, aes(x = Feature1, y = Feature2, fill = Label), alpha = 0.3) +
+  # Test points (different shape for test points)
+  geom_point(data = test.data, aes(x = Feature1, y = Feature2, color = Label), shape = 17, alpha = 0.7) +
+  # Decision boundaries
+  geom_contour(
+    data = grid_points,
+    aes(x = Feature1, y = Feature2, z = as.numeric(Label)),
+    color = "black",
+    breaks = seq(1.5, length(unique(train.y)), by = 1) # One contour line per class
+  ) +
+    scale_fill_brewer(palette = "Set3", name = "Regions") +  # Fill colors for regions
+  scale_color_brewer(palette = "Set3") +
+  labs(
+    title = sprintf("LDA Decision Boundary\nTraining Error: %.2f, Test Error: %.2f", train.error, test.error),
+    x = "Feature 1",
+    y = "Feature 2",
+    color = "Labels"
+  ) +
+  theme_minimal()
+```
+```{r}
+# Fit QDA model
+qda_model <- qda(Label ~ Feature1 + Feature2, data = train.data)
+
+# Predict on training data
+train.pred <- predict(qda_model, train.data)
+train.predicted <- train.pred$class
+
+# Calculate training error
+train.error <- mean(train.predicted != train.data$Label)
+
+# Predict on test data
+test.pred <- predict(qda_model, test.data)
+test.predicted <- test.pred$class
+
+# Calculate test error
+test.error <- mean(test.predicted != test.data$Label)
+
+# Create a grid of values for plotting decision boundaries
+x_min <- min(c(train.data$Feature1, test.data$Feature1)) - 1
+x_max <- max(c(train.data$Feature1, test.data$Feature1)) + 1
+y_min <- min(c(train.data$Feature2, test.data$Feature2)) - 1
+y_max <- max(c(train.data$Feature2, test.data$Feature2)) + 1
+
+grid_points <- expand.grid(
+  Feature1 = seq(x_min, x_max, length.out = 200),
+  Feature2 = seq(y_min, y_max, length.out = 200)
+)
+
+# Predict class probabilities on the grid
+grid_points$Label <- predict(qda_model, grid_points)$class
+
+# Plot the training data, test data, and decision boundaries with filled regions
+ggplot() +
+  # Fill regions with predicted label colors
+  geom_tile(data = grid_points, aes(x = Feature1, y = Feature2, fill = Label), alpha = 0.3) +
+  # Training points
+  geom_point(data = train.data, aes(x = Feature1, y = Feature2, color = Label), alpha = 0.7) +
+  # Test points (different shape for test points)
+  geom_point(data = test.data, aes(x = Feature1, y = Feature2, color = Label), shape = 17, alpha = 0.7) +
+  # Decision boundaries
+  geom_contour(
+    data = grid_points,
+    aes(x = Feature1, y = Feature2, z = as.numeric(Label)),
+    color = "black",
+    breaks = seq(1.5, length(unique(train.y)), by = 1) # One contour line per class
+  ) +
+  scale_fill_brewer(palette = "Set3", name = "Regions") +  # Fill colors for regions
+  scale_color_brewer(palette = "Set3") +  # Colors for points
+  labs(
+    title = sprintf("QDA Decision Boundary\nTraining Error: %.2f, Test Error: %.2f", train.error, test.error),
+    x = "Feature 1",
+    y = "Feature 2",
+    color = "Labels"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+# Fit Naive Bayes model
+nb_model <- naiveBayes(Label ~ Feature1 + Feature2, data = train.data)
+
+# Predict on training data
+train.pred <- predict(nb_model, train.data)
+train.predicted <- train.pred
+
+# Calculate training error
+train.error <- mean(train.predicted != train.data$Label)
+
+# Predict on test data
+test.pred <- predict(nb_model, test.data)
+test.predicted <- test.pred
+
+# Calculate test error
+test.error <- mean(test.predicted != test.data$Label)
+
+# Predict class probabilities on the grid
+grid_points$Label <- predict(nb_model, grid_points)
+
+# Plot the training data, test data, and decision boundaries with filled regions
+ggplot() +
+  # Fill regions with predicted label colors
+  geom_tile(data = grid_points, aes(x = Feature1, y = Feature2, fill = Label), alpha = 0.3) +
+  # Training points
+  geom_point(data = train.data, aes(x = Feature1, y = Feature2, color = Label), alpha = 0.7) +
+  # Test points (different shape for test points)
+  geom_point(data = test.data, aes(x = Feature1, y = Feature2, color = Label), shape = 17, alpha = 0.7) +
+  # Decision boundaries
+  geom_contour(
+    data = grid_points,
+    aes(x = Feature1, y = Feature2, z = as.numeric(Label)),
+    color = "black",
+    breaks = seq(1.5, length(unique(train.y)), by = 1) # One contour line per class
+  ) +
+  scale_fill_brewer(palette = "Set3", name = "Regions") +  # Fill colors for regions
+  scale_color_brewer(palette = "Set3") +  # Colors for points
+  labs(
+    title = sprintf("Naive Bayes Decision Boundary\nTraining Error: %.2f, Test Error: %.2f", train.error, test.error),
+    x = "Feature 1",
+    y = "Feature 2",
+    color = "Labels"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+# Load required libraries
+library(ggplot2)
+library(e1071) # For SVM and tuning
+
+# Perform a grid search for parameter optimization
+set.seed(123) # For reproducibility
+tune_result <- tune(
+  svm,
+  Label ~ Feature1 + Feature2,
+  data = train.data,
+  kernel = "radial",
+  ranges = list(cost = 2^(2:5), gamma = 2^(-1:-4)), # Grid for cost and gamma
+  tunecontrol = tune.control(sampling = "cross", cross = 5) # Use 5-fold cross-validation
+)
+
+# Extract the best model
+best_model <- tune_result$best.model
+
+# Output the best parameters
+cat("Best Cost:", tune_result$best.parameters$cost, "\n")
+cat("Best Gamma:", tune_result$best.parameters$gamma, "\n")
+
+# Predict on training data using the best model
+train.pred <- predict(best_model, train.data)
+train.predicted <- train.pred
+
+# Calculate training error
+train.error <- mean(train.predicted != train.data$Label)
+
+# Predict on test data using the best model
+test.pred <- predict(best_model, test.data)
+test.predicted <- test.pred
+
+# Calculate test error
+test.error <- mean(test.predicted != test.data$Label)
+
+# Create a grid of values for plotting decision boundaries
+x_min <- min(c(train.data$Feature1, test.data$Feature1)) - 1
+x_max <- max(c(train.data$Feature1, test.data$Feature1)) + 1
+y_min <- min(c(train.data$Feature2, test.data$Feature2)) - 1
+y_max <- max(c(train.data$Feature2, test.data$Feature2)) + 1
+
+grid_points <- expand.grid(
+  Feature1 = seq(x_min, x_max, length.out = 200),
+  Feature2 = seq(y_min, y_max, length.out = 200)
+)
+
+# Predict class probabilities on the grid using the best model
+grid_points$Label <- predict(best_model, grid_points)
+
+# Plot the training data, test data, and decision boundaries with filled regions
+ggplot() +
+  # Fill regions with predicted label colors
+  geom_tile(data = grid_points, aes(x = Feature1, y = Feature2, fill = Label), alpha = 0.3) +
+  # Training points
+  geom_point(data = train.data, aes(x = Feature1, y = Feature2, color = Label), alpha = 0.7) +
+  # Test points (different shape for test points)
+  geom_point(data = test.data, aes(x = Feature1, y = Feature2, color = Label), shape = 17, alpha = 0.7) +
+  # Decision boundaries
+  geom_contour(
+    data = grid_points,
+    aes(x = Feature1, y = Feature2, z = as.numeric(Label)),
+    color = "black",
+    breaks = seq(1.5, length(unique(train.y)), by = 1) # One contour line per class
+  ) +
+  scale_fill_brewer(palette = "Set3", name = "Regions") +  # Fill colors for regions
+  scale_color_brewer(palette = "Set3") +  # Colors for points
+  labs(
+    title = sprintf("Optimized SVC Decision Boundary\nTraining Error: %.2f, Test Error: %.2f", train.error, test.error),
+    x = "Feature 1",
+    y = "Feature 2",
+    color = "Labels"
+  ) +
+  theme_minimal()
+
+```
+```{r}
+# Perform a grid search for parameter optimization with sigmoid kernel
+set.seed(123) # For reproducibility
+tune_result <- tune(
+  svm,
+  Label ~ Feature1 + Feature2,
+  data = train.data,
+  kernel = "sigmoid",
+  ranges = list(
+    cost = 2^(2:5),        # Grid for cost parameter
+    gamma = 2^(-1:-4),     # Grid for gamma parameter
+    coef0 = seq(0, 1, 0.5) # Grid for coef0 (bias term)
+  ),
+  tunecontrol = tune.control(sampling = "cross", cross = 5) # Use 5-fold cross-validation
+)
+
+# Extract the best model
+best_model <- tune_result$best.model
+
+# Output the best parameters
+cat("Best Cost:", tune_result$best.parameters$cost, "\n")
+cat("Best Gamma:", tune_result$best.parameters$gamma, "\n")
+cat("Best Coef0:", tune_result$best.parameters$coef0, "\n")
+
+# Predict on training data using the best model
+train.pred <- predict(best_model, train.data)
+train.predicted <- train.pred
+
+# Calculate training error
+train.error <- mean(train.predicted != train.data$Label)
+
+# Predict on test data using the best model
+test.pred <- predict(best_model, test.data)
+test.predicted <- test.pred
+
+# Calculate test error
+test.error <- mean(test.predicted != test.data$Label)
+
+# Create a grid of values for plotting decision boundaries
+x_min <- min(c(train.data$Feature1, test.data$Feature1)) - 1
+x_max <- max(c(train.data$Feature1, test.data$Feature1)) + 1
+y_min <- min(c(train.data$Feature2, test.data$Feature2)) - 1
+y_max <- max(c(train.data$Feature2, test.data$Feature2)) + 1
+
+grid_points <- expand.grid(
+  Feature1 = seq(x_min, x_max, length.out = 200),
+  Feature2 = seq(y_min, y_max, length.out = 200)
+)
+
+# Predict class probabilities on the grid using the best model
+grid_points$Label <- predict(best_model, grid_points)
+
+# Plot the training data, test data, and decision boundaries with filled regions
+ggplot() +
+  # Fill regions with predicted label colors
+  geom_tile(data = grid_points, aes(x = Feature1, y = Feature2, fill = Label), alpha = 0.3) +
+  # Training points
+  geom_point(data = train.data, aes(x = Feature1, y = Feature2, color = Label), alpha = 0.7) +
+  # Test points (different shape for test points)
+  geom_point(data = test.data, aes(x = Feature1, y = Feature2, color = Label), shape = 17, alpha = 0.7) +
+  # Decision boundaries
+  geom_contour(
+    data = grid_points,
+    aes(x = Feature1, y = Feature2, z = as.numeric(Label)),
+    color = "black",
+    breaks = seq(1.5, length(unique(train.y)), by = 1) # One contour line per class
+  ) +
+  scale_fill_brewer(palette = "Set3", name = "Regions") +  # Fill colors for regions
+  scale_color_brewer(palette = "Set3") +  # Colors for points
+  labs(
+    title = sprintf("Optimized SVM with Sigmoid Kernel\nTraining Error: %.2f, Test Error: %.2f", train.error, test.error),
+    x = "Feature 1",
+    y = "Feature 2",
+    color = "Labels"
+  ) +
+  theme_minimal()
+```
+```{r}
+# Load required libraries
+library(ggplot2)
+library(e1071) # For SVM and tuning
+
+# Perform a grid search for parameter optimization with Polynomial Kernel (Degree 5)
+set.seed(123) # For reproducibility
+tune_result <- tune(
+  svm,
+  Label ~ Feature1 + Feature2,
+  data = train.data,
+  kernel = "polynomial",
+  ranges = list(
+    cost = 2^(2:5),     # Grid for cost
+    gamma = 2^(-4:-1),  # Grid for gamma
+    coef0 = c(0, 1, 2)  # Grid for coef0 (bias term)
+  ),
+  tunecontrol = tune.control(sampling = "cross", cross = 5) # 5-fold cross-validation
+)
+
+# Add degree = 5 to the final best model
+best_model <- tune_result$best.model
+best_model$degree <- 2  # Explicitly set the degree to 5 for the polynomial kernel
+
+# Output the best parameters
+cat("Best Cost:", tune_result$best.parameters$cost, "\n")
+cat("Best Gamma:", tune_result$best.parameters$gamma, "\n")
+cat("Best Coef0:", tune_result$best.parameters$coef0, "\n")
+cat("Degree:", 2, "\n")
+
+# Predict on training data using the best model
+train.pred <- predict(best_model, train.data)
+train.predicted <- train.pred
+
+# Calculate training error
+train.error <- mean(train.predicted != train.data$Label)
+
+# Predict on test data using the best model
+test.pred <- predict(best_model, test.data)
+test.predicted <- test.pred
+
+# Calculate test error
+test.error <- mean(test.predicted != test.data$Label)
+
+# Create a grid of values for plotting decision boundaries
+x_min <- min(c(train.data$Feature1, test.data$Feature1)) - 1
+x_max <- max(c(train.data$Feature1, test.data$Feature1)) + 1
+y_min <- min(c(train.data$Feature2, test.data$Feature2)) - 1
+y_max <- max(c(train.data$Feature2, test.data$Feature2)) + 1
+
+grid_points <- expand.grid(
+  Feature1 = seq(x_min, x_max, length.out = 200),
+  Feature2 = seq(y_min, y_max, length.out = 200)
+)
+
+# Predict class probabilities on the grid using the best model
+grid_points$Label <- predict(best_model, grid_points)
+
+# Plot the training data, test data, and decision boundaries with filled regions
+ggplot() +
+  # Fill regions with predicted label colors
+  geom_tile(data = grid_points, aes(x = Feature1, y = Feature2, fill = Label), alpha = 0.3) +
+  # Training points
+  geom_point(data = train.data, aes(x = Feature1, y = Feature2, color = Label), alpha = 0.7) +
+  # Test points (different shape for test points)
+  geom_point(data = test.data, aes(x = Feature1, y = Feature2, color = Label), shape = 17, alpha = 0.7) +
+  # Decision boundaries
+  geom_contour(
+    data = grid_points,
+    aes(x = Feature1, y = Feature2, z = as.numeric(Label)),
+    color = "black",
+    breaks = seq(1.5, length(unique(train.y)), by = 1) # One contour line per class
+  ) +
+  scale_fill_brewer(palette = "Set3", name = "Regions") +  # Fill colors for regions
+  scale_color_brewer(palette = "Set3") +  # Colors for points
+  labs(
+    title = sprintf("Optimized SVM (Polynomial Kernel, Degree 2)\nTraining Error: %.2f, Test Error: %.2f", train.error, test.error),
+    x = "Feature 1",
+    y = "Feature 2",
+    color = "Labels"
+  ) +
+  theme_minimal()
+
+```
+
+
+```{r}
+
+# Perform a grid search for parameter optimization with Polynomial Kernel (Degree 5)
+set.seed(123) # For reproducibility
+tune_result <- tune(
+  svm,
+  Label ~ Feature1 + Feature2,
+  data = train.data,
+  kernel = "polynomial",
+  ranges = list(
+    cost = 2^(2:5),     # Grid for cost
+    gamma = 2^(-4:-1),  # Grid for gamma
+    coef0 = c(0, 1, 2)  # Grid for coef0 (bias term)
+  ),
+  tunecontrol = tune.control(sampling = "cross", cross = 5) # 5-fold cross-validation
+)
+
+# Add degree = 5 to the final best model
+best_model <- tune_result$best.model
+best_model$degree <- 5  # Explicitly set the degree to 5 for the polynomial kernel
+
+# Output the best parameters
+cat("Best Cost:", tune_result$best.parameters$cost, "\n")
+cat("Best Gamma:", tune_result$best.parameters$gamma, "\n")
+cat("Best Coef0:", tune_result$best.parameters$coef0, "\n")
+cat("Degree:", 5, "\n")
+
+# Predict on training data using the best model
+train.pred <- predict(best_model, train.data)
+train.predicted <- train.pred
+
+# Calculate training error
+train.error <- mean(train.predicted != train.data$Label)
+
+# Predict on test data using the best model
+test.pred <- predict(best_model, test.data)
+test.predicted <- test.pred
+
+# Calculate test error
+test.error <- mean(test.predicted != test.data$Label)
+
+# Create a grid of values for plotting decision boundaries
+x_min <- min(c(train.data$Feature1, test.data$Feature1)) - 1
+x_max <- max(c(train.data$Feature1, test.data$Feature1)) + 1
+y_min <- min(c(train.data$Feature2, test.data$Feature2)) - 1
+y_max <- max(c(train.data$Feature2, test.data$Feature2)) + 1
+
+grid_points <- expand.grid(
+  Feature1 = seq(x_min, x_max, length.out = 200),
+  Feature2 = seq(y_min, y_max, length.out = 200)
+)
+
+# Predict class probabilities on the grid using the best model
+grid_points$Label <- predict(best_model, grid_points)
+
+# Plot the training data, test data, and decision boundaries with filled regions
+ggplot() +
+  # Fill regions with predicted label colors
+  geom_tile(data = grid_points, aes(x = Feature1, y = Feature2, fill = Label), alpha = 0.3) +
+  # Training points
+  geom_point(data = train.data, aes(x = Feature1, y = Feature2, color = Label), alpha = 0.7) +
+  # Test points (different shape for test points)
+  geom_point(data = test.data, aes(x = Feature1, y = Feature2, color = Label), shape = 17, alpha = 0.7) +
+  # Decision boundaries
+  geom_contour(
+    data = grid_points,
+    aes(x = Feature1, y = Feature2, z = as.numeric(Label)),
+    color = "black",
+    breaks = seq(1.5, length(unique(train.y)), by = 1) # One contour line per class
+  ) +
+  scale_fill_brewer(palette = "Set3", name = "Regions") +  # Fill colors for regions
+  scale_color_brewer(palette = "Set3") +  # Colors for points
+  labs(
+    title = sprintf("Optimized SVM (Polynomial Kernel, Degree 5)\nTraining Error: %.2f, Test Error: %.2f", train.error, test.error),
+    x = "Feature 1",
+    y = "Feature 2",
+    color = "Labels"
+  ) +
+  theme_minimal()
+
+```
+
+```{r}
+library(nnet) # For multinomial logistic regression
+
+# Fit Multinomial Logistic Regression model
+multi_log_model <- multinom(Label ~ Feature1 + Feature2, data = train.data)
+
+# Predict on training data
+train.pred <- predict(multi_log_model, train.data)
+train.error <- mean(train.pred != train.data$Label)
+
+# Predict on test data
+test.pred <- predict(multi_log_model, test.data)
+test.error <- mean(test.pred != test.data$Label)
+
+# Predict probabilities on the grid for all classes
+grid_probs <- predict(multi_log_model, grid_points, type = "probs")
+
+# Convert grid probabilities into a factor label for plotting
+grid_points$Label <- predict(multi_log_model, grid_points)
+
+# Plot decision boundaries
+ggplot() +
+  # Fill regions with predicted label colors
+  geom_tile(data = grid_points, aes(x = Feature1, y = Feature2, fill = Label), alpha = 0.3) +
+  # Training points
+  geom_point(data = train.data, aes(x = Feature1, y = Feature2, color = Label), alpha = 0.7) +
+  # Test points (different shape for test points)
+  geom_point(data = test.data, aes(x = Feature1, y = Feature2, color = Label), shape = 17, alpha = 0.7) +
+  # Decision boundaries (contour lines)
+  geom_contour(
+    data = grid_points,
+    aes(x = Feature1, y = Feature2, z = as.numeric(Label)),
+    color = "black",
+    breaks = seq(1.5, length(unique(train.y)), by = 1) # One contour line per class
+  ) +
+  scale_fill_brewer(palette = "Set3", name = "Regions") +  # Fill colors for regions
+  scale_color_brewer(palette = "Set3") +  # Colors for points
+  labs(
+    title = sprintf("Multinomial Logistic Regression\nTraining Error: %.2f, Test Error: %.2f", train.error, test.error),
+    x = "Feature 1",
+    y = "Feature 2",
+    color = "Labels"
+  ) +
+  theme_minimal()
+
+```
+
+```{r}
+# Define the error rates for each method
+methods <- c(
+  "LDA",
+  "QDA",
+  "Naive Bayes",
+  "SVM Polynomial (Degree 2)",
+  "SVM Polynomial (Degree 5)",
+  "SVM RBF",
+  "SVM Neural Network",
+  "Multinomial Logistic Regression"
+)
+
+# Replace these values with the actual training and test errors you computed
+training_errors <- c(0.54, 0.50, 0.48, 0.46, 0.44, 0.42, 0.40, 0.48)
+test_errors <- c(0.53, 0.55, 0.52, 0.50, 0.49, 0.47, 0.45, 0.52)
+
+# Combine into a data frame
+comparison_table <- data.frame(
+  Method = methods,
+  Training_Error = training_errors,
+  Test_Error = test_errors
+)
+
+# Print the table
+print(comparison_table)
+
+# Visualize the table as a heatmap-like table for easier comparison
+library(ggplot2)
+
+comparison_table_long <- reshape2::melt(comparison_table, id.vars = "Method")
+
+ggplot(comparison_table_long, aes(x = variable, y = Method, fill = value)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = sprintf("%.2f", value)), size = 4) +
+  scale_fill_gradient(low = "lightblue", high = "darkblue") +
+  labs(
+    title = "Classification Method Error Comparison",
+    x = "Error Type",
+    y = "Classification Method",
+    fill = "Error"
+  ) +
+  theme_minimal()
+
+```
+
+```{r}
+# Load necessary libraries
+library(plotly)
+
+# Assuming train.X is a matrix and train.y is a numeric vector
+# If train.X has more than 3 columns, reduce dimensions using PCA
+if (ncol(train.X) > 3) {
+  pca <- prcomp(train.X, center = TRUE, scale. = TRUE)
+  train.X.reduced <- pca$x[, 1:3]  # Use the first three principal components
+} else {
+  train.X.reduced <- train.X  # Use the original features if already 3D or fewer
+}
+
+# Convert to a data frame
+train.data <- data.frame(
+  Feature1 = train.X.reduced[, 1],
+  Feature2 = train.X.reduced[, 2],
+  Feature3 = train.X.reduced[, 3],
+  Label = as.factor(train.y)  # Convert labels to factors
+)
+
+# Create the 3D scatter plot
+fig <- plot_ly(
+  train.data,
+  x = ~Feature1,
+  y = ~Feature2,
+  z = ~Feature3,
+  color = ~Label,
+  colors = "Set3",
+  type = "scatter3d",
+  mode = "markers",
+  marker = list(size = 5, opacity = 0.7)
+)
+
+# Add title and axis labels
+fig <- fig %>%
+  layout(
+    title = "3D Scatter Plot of train.X with Labels from train.y",
+    scene = list(
+      xaxis = list(title = "Feature 1"),
+      yaxis = list(title = "Feature 2"),
+      zaxis = list(title = "Feature 3")
+    )
+  )
+
+# Show the plot
+fig
+
+```
+
+
